@@ -23,7 +23,7 @@ import UIKit
 
 class FilterNavigator: UIView
 {
-    let filterCategories =
+    var filterCategories =
     [
         CategoryCustomFilters,
         kCICategoryBlur,
@@ -40,7 +40,11 @@ class FilterNavigator: UIView
         kCICategoryStylize,
         kCICategoryTileEffect,
         kCICategoryTransition,
-    ].sort{ CIFilter.localizedNameForCategory($0) < CIFilter.localizedNameForCategory($1)}
+    ].sorted{
+    
+        CIFilter.localizedName(forCategory: $0) < CIFilter.localizedName(forCategory: $1)
+    
+    }
     
     /// Filterpedia doesn't support code generators, color cube filters, filters that require NSValue
     let exclusions = ["CIQRCodeGenerator",
@@ -58,13 +62,13 @@ class FilterNavigator: UIView
     
     let tableView: UITableView =
     {
-        let tableView = UITableView(frame: CGRectZero,
-            style: UITableViewStyle.Plain)
+        let tableView = UITableView(frame: CGRect(x: 0, y: 0, width: 0, height: 0),
+                                    style: UITableViewStyle.plain)
         
-        tableView.registerClass(UITableViewHeaderFooterView.self,
+        tableView.register(UITableViewHeaderFooterView.self,
             forHeaderFooterViewReuseIdentifier: "HeaderRenderer")
         
-        tableView.registerClass(UITableViewCell.self,
+        tableView.register(UITableViewCell.self,
             forCellReuseIdentifier: "ItemRenderer")
    
         return tableView
@@ -91,8 +95,8 @@ class FilterNavigator: UIView
         
         segmentedControl.selectedSegmentIndex = 0
         segmentedControl.addTarget(self,
-            action: #selector(FilterNavigator.segmentedControlChange),
-            forControlEvents: UIControlEvents.ValueChanged)
+                                   action: #selector(FilterNavigator.segmentedControlChange),
+                                   for: UIControlEvents.valueChanged)
         
         addSubview(tableView)
         addSubview(segmentedControl)
@@ -103,14 +107,14 @@ class FilterNavigator: UIView
         fatalError("init(coder:) has not been implemented")
     }
 
-    func segmentedControlChange()
+    @objc func segmentedControlChange()
     {
         mode = segmentedControl.selectedSegmentIndex == 0 ? .Grouped : .Flat
     }
     
     override func layoutSubviews()
     {
-        let segmentedControlHeight = segmentedControl.intrinsicContentSize().height
+        let segmentedControlHeight = segmentedControl.intrinsicContentSize.height
         
         tableView.frame = CGRect(x: 0,
             y: 0,
@@ -129,25 +133,25 @@ class FilterNavigator: UIView
 
 extension FilterNavigator: UITableViewDelegate
 {
-    func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath)
+    internal func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath)
     {
         let filterName: String
         
         switch mode
         {
         case .Grouped:
-            filterName = supportedFilterNamesInCategory(filterCategories[indexPath.section]).sort()[indexPath.row]
+            filterName = supportedFilterNamesInCategory(category: filterCategories[indexPath.section]).sorted()[indexPath.row]
         case .Flat:
-            filterName = supportedFilterNamesInCategories(nil).sort
+            filterName = supportedFilterNamesInCategories(categories: nil).sorted
             {
-                CIFilter.localizedNameForFilterName($0) ?? $0 < CIFilter.localizedNameForFilterName($1) ?? $1
+                CIFilter.localizedName(forFilterName: $0) ?? $0 < CIFilter.localizedName(forFilterName: $1) ?? $1
             }[indexPath.row]
         }
         
-        delegate?.filterNavigator(self, didSelectFilterName: filterName)
+        delegate?.filterNavigator(filterNavigator: self, didSelectFilterName: filterName)
     }
     
-    func tableView(tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat
     {
         switch mode
         {
@@ -158,14 +162,14 @@ extension FilterNavigator: UITableViewDelegate
         }
     }
     
-    func tableView(tableView: UITableView, viewForHeaderInSection section: Int) -> UIView?
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView?
     {
-        let cell = tableView.dequeueReusableHeaderFooterViewWithIdentifier("HeaderRenderer")! as UITableViewHeaderFooterView
+        let cell = tableView.dequeueReusableHeaderFooterView(withIdentifier: "HeaderRenderer")! as UITableViewHeaderFooterView
 
         switch mode
         {
         case .Grouped:
-            cell.textLabel?.text = CIFilter.localizedNameForCategory(filterCategories[section])
+            cell.textLabel?.text = CIFilter.localizedName(forCategory: filterCategories[section])
         case .Flat:
             cell.textLabel?.text = nil
         }
@@ -175,7 +179,7 @@ extension FilterNavigator: UITableViewDelegate
     
     func supportedFilterNamesInCategory(category: String?) -> [String]
     {
-        return CIFilter.filterNamesInCategory(category).filter
+        return CIFilter.filterNames(inCategory: category).filter
         {
             !exclusions.contains($0)
         }
@@ -183,10 +187,11 @@ extension FilterNavigator: UITableViewDelegate
     
     func supportedFilterNamesInCategories(categories: [String]?) -> [String]
     {
-        return CIFilter.filterNamesInCategories(categories).filter
+        let result = CIFilter.filterNames(inCategories: categories).filter
         {
             !exclusions.contains($0)
         }
+        return result;
     }
 }
 
@@ -205,36 +210,38 @@ extension FilterNavigator: UITableViewDataSource
         }
     }
     
-    func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
     {
         switch mode
         {
         case .Grouped:
-            return supportedFilterNamesInCategory(filterCategories[section]).count
+            return supportedFilterNamesInCategory(category: filterCategories[section]).count
         case .Flat:
-            return supportedFilterNamesInCategories(nil).count
+            return supportedFilterNamesInCategories(categories: nil).count
         }
     }
     
-    func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
-        let cell = tableView.dequeueReusableCellWithIdentifier("ItemRenderer",
-            forIndexPath: indexPath) 
+        let cell = tableView.dequeueReusableCell(withIdentifier: "ItemRenderer",
+                                                 for: indexPath as IndexPath)
 
-        let filterName: String
+        var filterName: String
         
         switch mode
         {
         case .Grouped:
-            filterName = supportedFilterNamesInCategory(filterCategories[indexPath.section]).sort()[indexPath.row]
+            let category = filterCategories[indexPath.section]
+            let filterNames = supportedFilterNamesInCategory(category: category).sorted()
+            filterName = filterNames[indexPath.row]
         case .Flat:
-            filterName = supportedFilterNamesInCategories(nil).sort
+            filterName = supportedFilterNamesInCategories(categories: nil).sorted
             {
-                CIFilter.localizedNameForFilterName($0) ?? $0 < CIFilter.localizedNameForFilterName($1) ?? $1
+                CIFilter.localizedName(forFilterName: $0) ?? $0 < CIFilter.localizedName(forFilterName: $1) ?? $1
             }[indexPath.row]
         }
         
-        cell.textLabel?.text = CIFilter.localizedNameForFilterName(filterName) ?? (CIFilter(name: filterName)?.attributes[kCIAttributeFilterDisplayName] as? String) ?? filterName
+        cell.textLabel?.text = CIFilter.localizedName(forFilterName: filterName) ?? (CIFilter(name: filterName)?.attributes[kCIAttributeFilterDisplayName] as? String) ?? filterName
         
         return cell
     }
